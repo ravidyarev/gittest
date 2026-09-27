@@ -1,0 +1,20 @@
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: en-US
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation PBI_QueryOrder = ["sakila actor","DBServer"]
+
+annotation __PBI_TimeIntelligenceEnabled = 1
+
+annotation PBI_ProTooling = ["DevMode"]
+
+ref table 'sakila actor'
+ref table DateTableTemplate_0d96a004-f262-4a21-86fd-8553414e7cef
+ref table LocalDateTable_dd7aebd5-655e-44f3-86cf-f6cd0aedd6da
+
+ref cultureInfo en-US
+

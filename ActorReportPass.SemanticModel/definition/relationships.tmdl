@@ -1,0 +1,5 @@
+relationship f1f39b25-880c-4d74-9327-02ad2fafd486
+	joinOnDateBehavior: datePartOnly
+	fromColumn: 'sakila actor'.last_update
+	toColumn: LocalDateTable_dd7aebd5-655e-44f3-86cf-f6cd0aedd6da.Date
+

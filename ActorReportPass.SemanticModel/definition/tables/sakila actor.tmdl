@@ -1,0 +1,64 @@
+table 'sakila actor'
+	lineageTag: bd0b165b-2cab-48c8-a939-6fe8349307d7
+
+	column actor_id
+		dataType: int64
+		formatString: 0
+		lineageTag: 36f2dadd-0783-435b-a6bd-7fd1cd91322f
+		summarizeBy: sum
+		sourceColumn: actor_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column first_name
+		dataType: string
+		lineageTag: 3c7d0524-17f1-425d-a30e-5c59efecc739
+		summarizeBy: none
+		sourceColumn: first_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column last_name
+		dataType: string
+		lineageTag: f053cb2f-3a3e-4602-96bd-43f7472e829b
+		summarizeBy: none
+		sourceColumn: last_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column last_update
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 042dd044-b27f-4602-ae2d-74c7471e0992
+		summarizeBy: none
+		sourceColumn: last_update
+
+		variation Variation
+			isDefault
+			relationship: f1f39b25-880c-4d74-9327-02ad2fafd486
+			defaultHierarchy: LocalDateTable_dd7aebd5-655e-44f3-86cf-f6cd0aedd6da.'Date Hierarchy'
+
+		annotation SummarizationSetBy = Automatic
+
+	column TestCustom
+		dataType: string
+		lineageTag: 8807226e-989a-4978-9c07-efc9852027f5
+		summarizeBy: none
+		sourceColumn: TestCustom
+
+		annotation SummarizationSetBy = Automatic
+
+	partition 'sakila actor-385acd15-23db-4d53-a217-d3262a3b6278' = m
+		mode: import
+		source =
+				let
+				    Source = MySQL.Database(DBServer, "sakila", [ReturnSingleDatabase=true]),
+				    sakila_actor = Source{[Schema="sakila",Item="actor"]}[Data],
+				    #"Added Conditional Column" = Table.AddColumn(sakila_actor, "TestCustom", each if Text.Contains([first_name], "P") then "Y" else "N")
+				in
+				    #"Added Conditional Column"
+
+	annotation PBI_ResultType = Table
+
+	annotation PBI_NavigationStepName = Navigation
+

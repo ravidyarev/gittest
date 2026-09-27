@@ -1,0 +1,5 @@
+expression DBServer = "mdwksarr001" meta [IsParameterQuery=true, List={"mdwksarr001", "localhost:33061"}, DefaultValue="mdwksarr001", Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 56d63915-d6d0-4d9e-aba1-5a700223e94f
+
+	annotation PBI_ResultType = Text
+
