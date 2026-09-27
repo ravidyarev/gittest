@@ -1,0 +1,31 @@
+name: Sync Dev workspace from Git
+
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Get access token
+        id: auth
+        run: |
+          TOKEN=$(curl -s -X POST "https://login.microsoftonline.com/${{ secrets.TENANT_ID }}/oauth2/v2.0/token" \
+            -d "client_id=${{ secrets.CLIENT_ID }}" \
+            -d "client_secret=${{ secrets.CLIENT_SECRET }}" \
+            -d "scope=https://api.fabric.microsoft.com/.default" \
+            -d "grant_type=client_credentials" | jq -r .access_token)
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger updateFromGit
+        run: |
+          RESPONSE=$(curl -s -i -X POST \
+            "https://api.fabric.microsoft.com/v1/workspaces/${{ vars.WORKSPACE_ID }}/git/updateFromGit" \
+            -H "Authorization: Bearer ${{ steps.auth.outputs.token }}" \
+            -H "Content-Type: application/json" -d '{}')
+          echo "$RESPONSE"
+          # This is a long-running operation; Fabric returns 202 + a Location header to poll.
+          # For production use, add a polling loop against the Location URL until status = Succeeded.
