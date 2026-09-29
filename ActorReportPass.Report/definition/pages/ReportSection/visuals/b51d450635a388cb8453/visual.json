@@ -1,12 +1,12 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.13.0/schema.json",
-  "name": "f64a6c2574edc5404ad0",
+  "name": "b51d450635a388cb8453",
   "position": {
-    "x": 9.6572280178837548,
-    "y": 0,
-    "z": 0,
+    "x": 657.76453055141576,
+    "y": 8.5842026825633386,
+    "z": 2,
     "height": 623.42771982116244,
-    "width": 274.69448584202684
+    "width": 230.70044709388972
   },
   "visual": {
     "visualType": "tableEx",
@@ -73,27 +73,6 @@
               }
             }
           }
-        }
-      ],
-      "columnWidth": [
-        {
-          "properties": {
-            "value": {
-              "expr": {
-                "Literal": {
-                  "Value": "118.83756145016244D"
-                }
-              }
-            }
-          },
-          "selector": {
-            "metadata": "sakila actor.first_name"
-          }
-        }
-      ],
-      "columnHeaders": [
-        {
-          "properties": {}
         }
       ]
     },
