@@ -1,7 +1,7 @@
 name: Promote Dev to Test
 on:
   push:
-    branches: [test]
+    branches: [main]
   workflow_dispatch:
 jobs:
   promote:
@@ -11,13 +11,49 @@ jobs:
       - name: Get access token
         id: auth
         run: |
-          TOKEN=$(curl -s -X POST "https://login.microsoftonline.com/${{ secrets.TENANT_ID }}/oauth2/v2.0/token" \
-            -d "client_id=${{ secrets.CLIENT_ID }}" -d "client_secret=${{ secrets.CLIENT_SECRET }}" \
-            -d "scope=https://analysis.windows.net/powerbi/api/.default" -d "grant_type=client_credentials" | jq -r .access_token)
+          if [[ -z "$AZURE_CREDENTIALS" ]]; then
+            echo "::error::AZURE_CREDENTIALS is missing from the test GitHub environment secrets."
+            exit 1
+          fi
+
+          if ! printf '%s' "$AZURE_CREDENTIALS" | jq -e '(.tenantId | type == "string" and length > 0) and (.clientId | type == "string" and length > 0) and (.clientSecret | type == "string" and length > 0)' >/dev/null 2>&1; then
+            echo "::error::AZURE_CREDENTIALS must be JSON with non-empty tenantId, clientId, and clientSecret fields."
+            exit 1
+          fi
+
+          TENANT_ID=$(printf '%s' "$AZURE_CREDENTIALS" | jq -r '.tenantId')
+          CLIENT_ID=$(printf '%s' "$AZURE_CREDENTIALS" | jq -r '.clientId')
+          CLIENT_SECRET=$(printf '%s' "$AZURE_CREDENTIALS" | jq -r '.clientSecret')
+
+          AUTH_RESPONSE=$(curl -sS -X POST "https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token" \
+            --data-urlencode "client_id=$CLIENT_ID" \
+            --data-urlencode "client_secret=$CLIENT_SECRET" \
+            --data-urlencode "scope=https://analysis.windows.net/powerbi/api/.default" \
+            --data-urlencode "grant_type=client_credentials")
+          TOKEN=$(echo "$AUTH_RESPONSE" | jq -r .access_token)
+          if [[ "$TOKEN" == "null" || -z "$TOKEN" ]]; then
+            echo "::error::Failed to acquire token. AAD error response below:"
+            echo "$AUTH_RESPONSE" | jq -r '{error, error_description}' 2>/dev/null || echo "$AUTH_RESPONSE"
+            exit 1
+          fi
+
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: Trigger deployment (Dev -> Test)
         run: |
-          curl -s -X POST "https://api.powerbi.com/v1.0/myorg/pipelines/${{ vars.PIPELINE_ID }}/deploy" \
-            -H "Authorization: Bearer ${{ steps.auth.outputs.token }}" -H "Content-Type: application/json" \
-            -d '{"sourceStageOrder": 0, "isBackwardDeployment": false}'
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
+            "https://api.powerbi.com/v1.0/myorg/pipelines/${{ vars.PIPELINE_ID }}/deploy" \
+            -H "Authorization: Bearer ${{ steps.auth.outputs.token }}" \
+            -H "Content-Type: application/json" \
+            -d '{"sourceStageOrder": 0, "isBackwardDeployment": false}')
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -oP '(?<=HTTP_STATUS:)\d+')
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "Response body: $BODY"
+          echo "Status code: $HTTP_STATUS"
+          if [[ "$HTTP_STATUS" -lt 200 || "$HTTP_STATUS" -ge 300 ]]; then
+            echo "::error::Deployment call failed with status $HTTP_STATUS"
+            exit 1
+          fi
