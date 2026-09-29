@@ -35,11 +35,29 @@ jobs:
 
       - name: Trigger updateFromGit
         run: |
+          STATUS_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
+            "https://api.fabric.microsoft.com/v1/workspaces/${{ vars.WORKSPACE_ID }}/git/status" \
+            -H "Authorization: Bearer ${{ steps.auth.outputs.token }}")
+          STATUS_CODE=$(echo "$STATUS_RESPONSE" | grep -oP '(?<=HTTP_STATUS:)\d+')
+          STATUS_BODY=$(echo "$STATUS_RESPONSE" | sed '$d')
+          if [[ "$STATUS_CODE" -lt 200 || "$STATUS_CODE" -ge 300 ]]; then
+            echo "::error::Git status call failed with status $STATUS_CODE"
+            echo "$STATUS_BODY"
+            exit 1
+          fi
+
+          REQUEST_BODY=$(echo "$STATUS_BODY" | jq -c '{remoteCommitHash, workspaceHead}')
+          if [[ "$(echo "$REQUEST_BODY" | jq -r '.remoteCommitHash // empty')" == "" ]]; then
+            echo "::error::Git status response did not include remoteCommitHash"
+            echo "$STATUS_BODY"
+            exit 1
+          fi
+
           RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
             "https://api.fabric.microsoft.com/v1/workspaces/${{ vars.WORKSPACE_ID }}/git/updateFromGit" \
             -H "Authorization: Bearer ${{ steps.auth.outputs.token }}" \
             -H "Content-Type: application/json" \
-            -d '{}')
+            -d "$REQUEST_BODY")
           HTTP_STATUS=$(echo "$RESPONSE" | grep -oP '(?<=HTTP_STATUS:)\d+')
           BODY=$(echo "$RESPONSE" | sed '$d')
           echo "Response body: $BODY"
