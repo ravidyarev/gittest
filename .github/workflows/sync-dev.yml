@@ -10,38 +10,37 @@ jobs:
       - name: Get access token
         id: auth
         run: |
-          if [[ -z "$TENANT_ID_CHECK" || -z "$CLIENT_ID_CHECK" || -z "$CLIENT_SECRET_CHECK" ]]; then
-            echo "::error::One or more required GitHub environment secrets are missing for the dev environment."
-            echo "TENANT_ID present: $([[ -n "$TENANT_ID_CHECK" ]] && echo yes || echo no)"
-            echo "CLIENT_ID present: $([[ -n "$CLIENT_ID_CHECK" ]] && echo yes || echo no)"
-            echo "CLIENT_SECRET present: $([[ -n "$CLIENT_SECRET_CHECK" ]] && echo yes || echo no)"
+          if [[ -z "$AZURE_CREDENTIALS" ]]; then
+            echo "::error::AZURE_CREDENTIALS is missing from the dev GitHub environment secrets."
             exit 1
           fi
 
-          AUTH_RESPONSE=$(curl -sS -X POST "https://login.microsoftonline.com/$TENANT_ID_CHECK/oauth2/v2.0/token" \
-            --data-urlencode "client_id=$CLIENT_ID_CHECK" \
-            --data-urlencode "client_secret=$CLIENT_SECRET_CHECK" \
+          if ! printf '%s' "$AZURE_CREDENTIALS" | jq -e '(.tenantId | type == "string" and length > 0) and (.clientId | type == "string" and length > 0) and (.clientSecret | type == "string" and length > 0)' >/dev/null 2>&1; then
+            echo "::error::AZURE_CREDENTIALS must be JSON with non-empty tenantId, clientId, and clientSecret fields."
+            exit 1
+          fi
+
+          TENANT_ID=$(printf '%s' "$AZURE_CREDENTIALS" | jq -r '.tenantId')
+          CLIENT_ID=$(printf '%s' "$AZURE_CREDENTIALS" | jq -r '.clientId')
+          CLIENT_SECRET=$(printf '%s' "$AZURE_CREDENTIALS" | jq -r '.clientSecret')
+
+          AUTH_RESPONSE=$(curl -sS -X POST "https://login.microsoftonline.com/$TENANT_ID/oauth2/v2.0/token" \
+            --data-urlencode "client_id=$CLIENT_ID" \
+            --data-urlencode "client_secret=$CLIENT_SECRET" \
             --data-urlencode "scope=https://api.fabric.microsoft.com/.default" \
             --data-urlencode "grant_type=client_credentials")
 
           TOKEN=$(echo "$AUTH_RESPONSE" | jq -r .access_token)
-          echo "::add-mask::$TOKEN"
-          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
-
-          # Diagnostics: confirm secrets are non-empty without ever printing their values
-          echo "TENANT_ID length: ${#TENANT_ID_CHECK}"
-          echo "CLIENT_ID length: ${#CLIENT_ID_CHECK}"
-          echo "CLIENT_SECRET length: ${#CLIENT_SECRET_CHECK}"
-
           if [[ "$TOKEN" == "null" || -z "$TOKEN" ]]; then
             echo "::error::Failed to acquire token. AAD error response below:"
             echo "$AUTH_RESPONSE" | jq -r '{error, error_description}' 2>/dev/null || echo "$AUTH_RESPONSE"
             exit 1
           fi
+
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
         env:
-          TENANT_ID_CHECK: ${{ secrets.TENANT_ID }}
-          CLIENT_ID_CHECK: ${{ secrets.CLIENT_ID }}
-          CLIENT_SECRET_CHECK: ${{ secrets.CLIENT_SECRET }}
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Trigger updateFromGit
         run: |
