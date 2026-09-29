@@ -1,7 +1,7 @@
 name: Promote Dev to Test
 on:
   push:
-    branches: [test]
+    branches: [main]
   workflow_dispatch:
 jobs:
   promote:
