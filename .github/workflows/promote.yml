@@ -45,10 +45,10 @@ jobs:
       - name: Trigger deployment (Dev -> Test)
         run: |
           RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
-            "https://api.powerbi.com/v1.0/myorg/pipelines/${{ vars.PIPELINE_ID }}/deploy" \
+            "https://api.powerbi.com/v1.0/myorg/pipelines/${{ vars.PIPELINE_ID }}/deployAll" \
             -H "Authorization: Bearer ${{ steps.auth.outputs.token }}" \
             -H "Content-Type: application/json" \
-            -d '{"sourceStageOrder": 0, "isBackwardDeployment": false}')
+            -d '{"sourceStageOrder": 0, "isBackwardDeployment": false, "options": {"allowCreateArtifact": true, "allowOverwriteArtifact": true}}')
           HTTP_STATUS=$(echo "$RESPONSE" | grep -oP '(?<=HTTP_STATUS:)\d+')
           BODY=$(echo "$RESPONSE" | sed '$d')
           echo "Response body: $BODY"
