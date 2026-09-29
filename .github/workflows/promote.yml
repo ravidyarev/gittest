@@ -16,8 +16,19 @@ jobs:
             -d "scope=https://analysis.windows.net/powerbi/api/.default" -d "grant_type=client_credentials" | jq -r .access_token)
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
       - name: Trigger deployment (Dev -> Test)
         run: |
-          curl -s -X POST "https://api.powerbi.com/v1.0/myorg/pipelines/${{ vars.PIPELINE_ID }}/deploy" \
-            -H "Authorization: Bearer ${{ steps.auth.outputs.token }}" -H "Content-Type: application/json" \
-            -d '{"sourceStageOrder": 0, "isBackwardDeployment": false}'
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
+            "https://api.powerbi.com/v1.0/myorg/pipelines/${{ vars.PIPELINE_ID }}/deploy" \
+            -H "Authorization: Bearer ${{ steps.auth.outputs.token }}" \
+            -H "Content-Type: application/json" \
+            -d '{"sourceStageOrder": 0, "isBackwardDeployment": false}')
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -oP '(?<=HTTP_STATUS:)\d+')
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "Response body: $BODY"
+          echo "Status code: $HTTP_STATUS"
+          if [[ "$HTTP_STATUS" -lt 200 || "$HTTP_STATUS" -ge 300 ]]; then
+            echo "::error::Deployment call failed with status $HTTP_STATUS"
+            exit 1
+          fi

@@ -1,9 +1,7 @@
 name: Sync Dev workspace from Git
-
 on:
   push:
     branches: [dev]
-
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -13,19 +11,23 @@ jobs:
         id: auth
         run: |
           TOKEN=$(curl -s -X POST "https://login.microsoftonline.com/${{ secrets.TENANT_ID }}/oauth2/v2.0/token" \
-            -d "client_id=${{ secrets.CLIENT_ID }}" \
-            -d "client_secret=${{ secrets.CLIENT_SECRET }}" \
-            -d "scope=https://api.fabric.microsoft.com/.default" \
-            -d "grant_type=client_credentials" | jq -r .access_token)
+            -d "client_id=${{ secrets.CLIENT_ID }}" -d "client_secret=${{ secrets.CLIENT_SECRET }}" \
+            -d "scope=https://api.fabric.microsoft.com/.default" -d "grant_type=client_credentials" | jq -r .access_token)
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
       - name: Trigger updateFromGit
         run: |
-          RESPONSE=$(curl -s -i -X POST \
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
             "https://api.fabric.microsoft.com/v1/workspaces/${{ vars.WORKSPACE_ID }}/git/updateFromGit" \
             -H "Authorization: Bearer ${{ steps.auth.outputs.token }}" \
-            -H "Content-Type: application/json" -d '{}')
-          echo "$RESPONSE"
-          # This is a long-running operation; Fabric returns 202 + a Location header to poll.
-          # For production use, add a polling loop against the Location URL until status = Succeeded.
+            -H "Content-Type: application/json" \
+            -d '{}')
+          HTTP_STATUS=$(echo "$RESPONSE" | grep -oP '(?<=HTTP_STATUS:)\d+')
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "Response body: $BODY"
+          echo "Status code: $HTTP_STATUS"
+          if [[ "$HTTP_STATUS" -lt 200 || "$HTTP_STATUS" -ge 300 ]]; then
+            echo "::error::updateFromGit call failed with status $HTTP_STATUS"
+            exit 1
+          fi
