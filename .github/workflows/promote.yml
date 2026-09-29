@@ -1,0 +1,23 @@
+name: Promote Dev to Test
+on:
+  push:
+    branches: [test]
+  workflow_dispatch:
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - name: Get access token
+        id: auth
+        run: |
+          TOKEN=$(curl -s -X POST "https://login.microsoftonline.com/${{ secrets.TENANT_ID }}/oauth2/v2.0/token" \
+            -d "client_id=${{ secrets.CLIENT_ID }}" -d "client_secret=${{ secrets.CLIENT_SECRET }}" \
+            -d "scope=https://analysis.windows.net/powerbi/api/.default" -d "grant_type=client_credentials" | jq -r .access_token)
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+      - name: Trigger deployment (Dev -> Test)
+        run: |
+          curl -s -X POST "https://api.powerbi.com/v1.0/myorg/pipelines/${{ vars.PIPELINE_ID }}/deploy" \
+            -H "Authorization: Bearer ${{ steps.auth.outputs.token }}" -H "Content-Type: application/json" \
+            -d '{"sourceStageOrder": 0, "isBackwardDeployment": false}'
