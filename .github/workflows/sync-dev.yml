@@ -55,7 +55,7 @@ jobs:
             exit 1
           fi
 
-          REQUEST_BODY=$(echo "$STATUS_BODY" | jq -c '{remoteCommitHash, workspaceHead}')
+          REQUEST_BODY=$(echo "$STATUS_BODY" | jq -c '{remoteCommitHash, workspaceHead, options: {allowOverrideItems: true}}')
           if [[ "$(echo "$REQUEST_BODY" | jq -r '.remoteCommitHash // empty')" == "" ]]; then
             echo "::error::Git status response did not include remoteCommitHash"
             echo "$STATUS_BODY"
