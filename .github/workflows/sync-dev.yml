@@ -10,11 +10,28 @@ jobs:
       - name: Get access token
         id: auth
         run: |
-          TOKEN=$(curl -s -X POST "https://login.microsoftonline.com/${{ secrets.TENANT_ID }}/oauth2/v2.0/token" \
+          AUTH_RESPONSE=$(curl -s -X POST "https://login.microsoftonline.com/${{ secrets.TENANT_ID }}/oauth2/v2.0/token" \
             -d "client_id=${{ secrets.CLIENT_ID }}" -d "client_secret=${{ secrets.CLIENT_SECRET }}" \
-            -d "scope=https://api.fabric.microsoft.com/.default" -d "grant_type=client_credentials" | jq -r .access_token)
+            -d "scope=https://api.fabric.microsoft.com/.default" -d "grant_type=client_credentials")
+
+          TOKEN=$(echo "$AUTH_RESPONSE" | jq -r .access_token)
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+          # Diagnostics: confirm secrets are non-empty without ever printing their values
+          echo "TENANT_ID length: ${#TENANT_ID_CHECK}"
+          echo "CLIENT_ID length: ${#CLIENT_ID_CHECK}"
+          echo "CLIENT_SECRET length: ${#CLIENT_SECRET_CHECK}"
+
+          if [[ "$TOKEN" == "null" || -z "$TOKEN" ]]; then
+            echo "::error::Failed to acquire token. AAD error response below:"
+            echo "$AUTH_RESPONSE" | jq -r '{error, error_description}' 2>/dev/null || echo "$AUTH_RESPONSE"
+            exit 1
+          fi
+        env:
+          TENANT_ID_CHECK: ${{ secrets.TENANT_ID }}
+          CLIENT_ID_CHECK: ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET_CHECK: ${{ secrets.CLIENT_SECRET }}
 
       - name: Trigger updateFromGit
         run: |
