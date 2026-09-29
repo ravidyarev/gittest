@@ -10,9 +10,19 @@ jobs:
       - name: Get access token
         id: auth
         run: |
-          AUTH_RESPONSE=$(curl -s -X POST "https://login.microsoftonline.com/${{ secrets.TENANT_ID }}/oauth2/v2.0/token" \
-            -d "client_id=${{ secrets.CLIENT_ID }}" -d "client_secret=${{ secrets.CLIENT_SECRET }}" \
-            -d "scope=https://api.fabric.microsoft.com/.default" -d "grant_type=client_credentials")
+          if [[ -z "$TENANT_ID_CHECK" || -z "$CLIENT_ID_CHECK" || -z "$CLIENT_SECRET_CHECK" ]]; then
+            echo "::error::One or more required GitHub environment secrets are missing for the dev environment."
+            echo "TENANT_ID present: $([[ -n "$TENANT_ID_CHECK" ]] && echo yes || echo no)"
+            echo "CLIENT_ID present: $([[ -n "$CLIENT_ID_CHECK" ]] && echo yes || echo no)"
+            echo "CLIENT_SECRET present: $([[ -n "$CLIENT_SECRET_CHECK" ]] && echo yes || echo no)"
+            exit 1
+          fi
+
+          AUTH_RESPONSE=$(curl -sS -X POST "https://login.microsoftonline.com/$TENANT_ID_CHECK/oauth2/v2.0/token" \
+            --data-urlencode "client_id=$CLIENT_ID_CHECK" \
+            --data-urlencode "client_secret=$CLIENT_SECRET_CHECK" \
+            --data-urlencode "scope=https://api.fabric.microsoft.com/.default" \
+            --data-urlencode "grant_type=client_credentials")
 
           TOKEN=$(echo "$AUTH_RESPONSE" | jq -r .access_token)
           echo "::add-mask::$TOKEN"
